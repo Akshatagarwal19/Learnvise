@@ -32,6 +32,21 @@ const authController = {
             res.status(500).json({ message: 'Server error', error });
         }
     },
+    logout: async (req, res) => {
+        try {
+            res.clearCookie("authToken", {
+                httpOnly: false,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "Lax",
+            });
+
+            res.status(200).json({success: true, message: "Logout Successfull"});
+
+        } catch (error) { 
+            console.error("Error during Logout:", error.message);
+            res.status(500).json({ success: false, message: "Failed to Logout", error: error.message });
+        }
+    },
     signup: async (req, res) => {
         const { username, email, password, role } = req.body;
 
@@ -64,6 +79,7 @@ const authController = {
             res.status(500).json({ message: "Internal Server Error" });
         }
     },
+
 };
 
 export default authController;
