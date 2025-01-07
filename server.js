@@ -1,61 +1,53 @@
 import express from "express";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
 import cors from "cors";
-import jwt from "jsonwebtoken";
-import auth from "./middleware/auth.js";
-import ownerRoutes from "./routes/owner.js";
-import managerRoutes from "./routes/manager.js";
-import instructorRoutes from "./routes/instructor.js";
-import studentRoutes from "./routes/student.js";
+import multer from "multer";
+import connectDB from "./src/config/db.js";
+import cookieParser from "cookie-parser";
+import authRoutes from "./src/routes/authRoutes.js";
+import courseRoutes from "./src/routes/courseRoutes.js";
+import enrollmentRoutes from "./src/routes/enrollmentRoutes.js"
+// import paymentRoutes from "./src/routes/paymentRoutes.js";
+import categoryRoutes from "./src/routes/categoryRoutes.js";
+// import userRoutes from "./src/routes/userRoutes.js";
+import errorHandler from "./src/middleware/errorHandler.js";
 
 dotenv.config();
 
 const app = express();
 
+const storage = multer.memoryStorage(); // Store file in memory
+const upload = multer({ storage: storage });
+
+app.use(cookieParser());
+// Middleware
 app.use(cors({
     origin: "http://localhost:3000",
-    methods: "GET,POST,PUT,DELETE",
-    allowedHeaders: "Content-Type,Authorization",
+    methods: "GET,POST,PUT,DELETE,PATCH",
+    // allowedHeaders: "Content-Type,Authorization",
+    credentials: true,
 }));
 app.use(bodyParser.json());
 
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log("Connected to MongoDB"))
-    .catch((error) => console.error("MongoDB connection error:", error));
+// Database Connection
+connectDB();
 
-const User = mongoose.model("User", new mongoose.Schema({
-    username: String,
-    password: String,
-    role: String,
-}));
-
-app.post("/login", async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-        const user = await User.findOne({ username, password }); // Await for database query
-        if (!user) {
-            return res.status(401).json({ message: "Invalid credentials" }); // Send proper response for invalid user
-        }
-
-        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-            expiresIn: "1h",
-        });
-
-        res.json({ token, user: { id: user._id, username: user.username, role: user.role } });
-    } catch (error) {
-        console.error("Error during login:", error);
-        res.status(500).json({ message: "Internal Server Error" });
-    }
+app.get('/', (req, res) => {
+    console.log("welcome to my api")
+    res.send('Welcome to this API');
 });
+// Routes
+app.use("/api/auth", authRoutes);        // Authentication-related routes
+app.use("/api/courses", courseRoutes);  // Course-related routes
+app.use("/api/categories", categoryRoutes);
+app.use("/api/enrollment", enrollmentRoutes);
+// app.use("/api/payment", paymentRoutes); //Payment-related routes
+// app.use("/api/users", userRoutes);      // User profile-related routes
 
+// Error Handler Middleware
+app.use(errorHandler);
 
-app.use("/owner", auth.authenticate, auth.authorize(["Owner"]), ownerRoutes);
-app.use("/manager", auth.authenticate, auth.authorize(["Manager", "Owner"]), managerRoutes);
-app.use("/instructor", auth.authenticate, auth.authorize(["Instructor", "Manager", "Owner"]), instructorRoutes);
-app.use("/student", auth.authenticate, auth.authorize(["Student", "Instructor", "Manager", "Owner"]), studentRoutes);
-
+// Start Server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
