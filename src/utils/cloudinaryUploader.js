@@ -9,6 +9,10 @@ import cloudinary from "../config/cloudinary.js";
  */
 const uploadToCloudinary = (fileBuffer, folder, resourceType = "auto") => {
     return new Promise((resolve, reject) => {
+        console.log("Uploading to Cloudinary");
+        console.log("Resource Type:", resourceType);
+        console.log("Buffer Size:", fileBuffer.length);
+        
         cloudinary.uploader.upload_stream(
             {
                 folder: `appfolder/${folder}`,
