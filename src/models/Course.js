@@ -9,27 +9,41 @@ const CourseSchema = new mongoose.Schema({
     thumbnail: { type: String },
     instructor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     category:{ type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
-    sections: [
+    lessons: [
         {
             title: { type: String, required: true },
-            description: { type: String, required: true },
+            contentType: { type: String, enum: ["video", "pdf", "excel"], required: true },
+            fileUrl: { type: String, required: true },
+            description: { type: String , default: "" },
             price: { type: Number, default: 0 },
-            lessons: [
-                {
-                    title: { type: String, required: true},
-                    videoUrl: { type: String },
-                    description: { type: String, default: "" },
-                    price: { type: Number, default: 0 },
+            isFree: { type: Boolean, default: false },
+            timeLimit: { type: Number },
+            duration: { type: Number }
+            ,
+            progressTracking: {
+                completionCriteria: {
+                    type: String,
+                    threshold: Number,
                 },
-            ],
-        },
+                engagementMetrics: {
+                    totalViews: { type: Number, default: 0 },
+                    timeSpent: { type: Number, default: 0 },
+                }
+            }
+        }
     ],
-    ratings: [
+    totalDuration: { type: Number },
+    studentProgress: [
         {
-            user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-            ratings: { type: Number, required: true },
-            review: { type: String },
-        },
+            student: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            },
+            completedLessons: [
+                { type: mongoose.Schema.Types.ObjectId }
+            ],
+            progressPercentage: { type: Number, default: 0 },
+        }
     ],
     createdAt: { type: Date, default: Date.now },
 });

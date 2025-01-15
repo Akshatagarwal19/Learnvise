@@ -35,11 +35,12 @@ const authController = {
     logout: async (req, res) => {
         try {
             res.clearCookie("authToken", {
-                httpOnly: false,
+                httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: "Lax",
+                sameSite: "Strict",
             });
 
+            console.log("Logout Successfull");
             res.status(200).json({success: true, message: "Logout Successfull"});
 
         } catch (error) { 

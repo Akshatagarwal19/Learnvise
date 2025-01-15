@@ -1,7 +1,6 @@
 import Course from "../models/Course.js";
 import Category from "../models/Category.js";
 import uploadToCloudinary from "../utils/cloudinaryUploader.js";
-import FreeAccess from "../models/FreeAccess.js";
 
 const courseController = {
   createCourse: async (req, res) => {
@@ -11,6 +10,12 @@ const courseController = {
     console.log("Request Body:", req.body);
     console.log("Multer File Object:", req.file);
 
+    const durationLimits = {
+      Beginner: 20,
+      Intermediate: 40,
+      Advanced: 60
+    };
+
     try {
         if (!title || !description || !price || !language || !level || !category) {
             return res.status(400).json({ message: "All fields are required" });
@@ -18,6 +23,10 @@ const courseController = {
 
         if (!req.file) {
             return res.status(400).json({ message: "Thumbnail file is required" });
+        }
+
+        if (!durationLimits[level]) {
+            return res.status(400).json({ message: "Invalid course Level" });
         }
 
         // Find category by name
@@ -49,20 +58,19 @@ const courseController = {
             thumbnail: thumbnailUrl,
             instructor: instructorId,
             category: existingCategory._id,
+            totalDuration: 0,
+            durationLimit: durationLimits[level],
         });
 
         const savedCourse = await course.save();
-        return res
-            .status(201)
-            .json({ message: "Course created successfully", course: savedCourse });
+        return res.status(201).json({ message: "Course created successfully", course: savedCourse });
     } catch (error) {
         console.error("Error creating course:", error.message);
         return res
             .status(500)
             .json({ message: "Failed to create course", error: error.message });
     }
-},
-
+  },
 
   getAllCourses: async (req, res) => {
     try {
@@ -159,162 +167,83 @@ const courseController = {
         .json({ message: "Failed to delete course", error: error.message });
     }
   },
-  // section related methods
-  addSection: async (req, res) => {
-    const { title, description, price } = req.body;
-    const { courseId } = req.params;
 
-    try {
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: "Course not found" });
-      }
-
-      if (course.level !== "Advanced" && price > 0) {
-        return res.status(400).json({ message: "Price can only be added to sections of Advanced courses."});
-      }
-
-      const newSection = { title, description, price: course.level === "Advanced" ? price : 0, lessons: [] };
-      course.sections.push(newSection);
-
-      await course.save();
-
-      res
-        .status(200)
-        .json({ message: "Section created successfully", section: newSection });
-    } catch (error) {
-      console.error("Error creating section:", error.message);
-      res
-        .status(500)
-        .json({ message: "Failed to create section", error: error.message });
-    }
-  },
-
-  updateSection: async (req, res) => {
-    const { courseId, sectionId } = req.params;
-    const updates = req.body;
-
-    try {
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: "Course not found" });
-      }
-
-      const section = course.sections.id(sectionId);
-      if (!section) {
-        return res.status(404).json({ message: "Section not found" });
-      }
-
-      if (updates.title !== undefined) {
-        section.title = updates.title;
-      }
-
-      if (updates.description !== undefined) {
-        section.description = updates.description;
-      }
-
-      if (updates.price !== undefined) {
-        section.price = updates.price;
-      }
-
-      if (updates.lessons !== undefined) {
-        section.lessons == updates.lessons;
-      }
-
-      await course.save();
-
-      res.status(200).json({ message: "Section updated successfully", course });
-    } catch (error) {
-      console.error("Error updating section:", error.message);
-      res
-        .status(500)
-        .json({ message: "Failed to update section", error: error.message });
-    }
-  },
-
-  deleteSection: async (req, res) => {
-    const { courseId, sectionId } = req.params;
-
-    try {
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: "Course not found" });
-      }
-      const section = course.sections.id(sectionId);
-      if (!section) {
-        return res.status(404).json({ message: "Section not found" });
-      }
-
-      section.remove();
-      await course.save();
-
-      res.status(200).json({ message: "Section deleted successfully", course });
-    } catch (error) {
-      console.error("Error deleting Section:", error.message);
-      res
-        .status(500)
-        .json({ message: "Failed to delete section", error: error.message });
-    }
-  },
   // lesson related methods
   addLesson: async (req, res) => {
     try {
-      const { title, description, price } = req.body;
-      const { courseId, sectionId } = req.params;
+        const { title, description, price, contentType, duration } = req.body;
+        const { courseId } = req.params;
 
-      if (!title || !description) {
-        return res
-          .status(400)
-          .json({ message: "Title and description are required." });
-      }
+        if (!title || !description || !contentType || !duration) {
+            return res.status(400).json({ message: "Title, description, content type, and duration are required." });
+        }
 
-      if (!req.file) {
-        return res.status(400).json({ message: "Video file is required." });
-      }
+        if (!req.file) {
+            return res.status(400).json({ message: "File is required." });
+        }
 
-      const { buffer, mimetype } = req.file;
-      const resourceType = mimetype.startsWith("video/") ? "video" : null;
-      if (!resourceType) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid file type. Only video files are supported.",
-          });
-      }
+        const { buffer, mimetype } = req.file;
+        const resourceType = mimetype.startsWith("video/") ? "video" : 
+                             mimetype === "application/pdf" ? "pdf" : 
+                             mimetype.startsWith("application/vnd.ms-excel") ? "excel" : null;
 
-      const uploadResult = await uploadToCloudinary(
-        buffer,
-        "lesson_videos",
-        resourceType
-      );
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: "Course not found." });
-      }
+        console.log("Resource Type:", resourceType);
+        if (!resourceType) {
+            return res.status(400).json({ message: "Invalid file type. Only video, pdf, or excel files are supported." });
+        }
 
-      const section = course.sections.id(sectionId);
-      if (!section) {
-        return res.status(404).json({ message: "Section not found." });
-      }
+        const uploadResult = await uploadToCloudinary(buffer, "lesson_files", resourceType);
+        console.log("Cloudinary Upload Result:", uploadResult);
 
-      const newLesson = {
-        title,
-        videoUrl: uploadResult.secure_url,
-        description,
-        price: course.level === "Advanced" ? price : 0,
-      };
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ message: "Course not found." });
+        }
 
+        // Check total duration for beginner-level courses
+        // if (course.level === "Beginner") {
+        //     const totalDuration = course.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0);
+        //     if (totalDuration + duration > 360) {
+        //         return res.status(400).json({
+        //             message: `Total duration for beginner courses cannot exceed 6 hours (360 minutes). Current total: ${totalDuration} minutes.`,
+        //         });
+        //     }
+        // }
 
-      section.lessons.push(newLesson);
-      await course.save();
-      res
-        .status(201)
-        .json({ message: "Lesson added successfully.", lesson: newLesson });
+        // Set time limits based on course level
+        let timeLimit;
+        if (course.level === "Beginner") {
+            timeLimit = 20;
+        } else if (course.level === "Intermediate") {
+            timeLimit = 40;
+        } else if (course.level === "Advanced") {
+            timeLimit = 60;
+        }
+
+        // Initialize the new lesson
+        const newLesson = {
+            title,
+            contentType,
+            fileUrl: uploadResult.secure_url,
+            description,
+            price: course.level === "Advanced" ? price : 0, // Only advanced courses can have paid lessons
+            isFree: false,
+            timeLimit,
+            duration,
+        };
+        course.lessons.push(newLesson);
+
+        // Update total duration in the course
+        // course.totalDuration = course.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0);
+
+        await course.save();
+
+        const addedLesson = course.lessons[course.lessons.length - 1]; // Retrieve the added lesson
+
+        res.status(201).json({ message: "Lesson added successfully.", lesson: addedLesson });
     } catch (error) {
-      console.error("Error adding lesson:", error.message);
-      res
-        .status(500)
-        .json({ message: "Failed to add lesson.", error: error.message });
+        console.error("Error adding lesson:", error.message);
+        res.status(500).json({ message: "Failed to add lesson.", error: error.message });
     }
   },
 
@@ -360,6 +289,7 @@ const courseController = {
         .json({ message: "Failed to update lesson.", error: error.message });
     }
   },
+
   deleteLesson: async (req, res) => {
     try {
       const { courseId, sectionId, lessonId } = req.params;
@@ -466,9 +396,6 @@ const courseController = {
     }
   },
 
-  // Under Work extra endpoints
-
-  addRating: async (req, res) => {},
 };
 
 export default courseController;
