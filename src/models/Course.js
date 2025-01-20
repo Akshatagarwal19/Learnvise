@@ -1,4 +1,4 @@
-import mongoose, { Mongoose } from "mongoose";
+import mongoose from "mongoose";
 
 const CourseSchema = new mongoose.Schema({
     title: { type: String, required: true },
@@ -17,34 +17,15 @@ const CourseSchema = new mongoose.Schema({
             description: { type: String , default: "" },
             price: { type: Number, default: 0 },
             isFree: { type: Boolean, default: false },
+            quiz: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Quiz",
+            },
             timeLimit: { type: Number },
             duration: { type: Number }
-            ,
-            progressTracking: {
-                completionCriteria: {
-                    type: String,
-                    threshold: Number,
-                },
-                engagementMetrics: {
-                    totalViews: { type: Number, default: 0 },
-                    timeSpent: { type: Number, default: 0 },
-                }
-            }
         }
     ],
     totalDuration: { type: Number },
-    studentProgress: [
-        {
-            student: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User",
-            },
-            completedLessons: [
-                { type: mongoose.Schema.Types.ObjectId }
-            ],
-            progressPercentage: { type: Number, default: 0 },
-        }
-    ],
     createdAt: { type: Date, default: Date.now },
 });
 

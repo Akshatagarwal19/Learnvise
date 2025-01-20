@@ -10,6 +10,8 @@ import courseRoutes from "./src/routes/courseRoutes.js";
 import enrollmentRoutes from "./src/routes/enrollmentRoutes.js"
 import progressRoutes from "./src/routes/progressRoutes.js";
 import categoryRoutes from "./src/routes/categoryRoutes.js";
+import QuizRoutes from "./src/routes/QuizRoutes.js";
+import CertificateRoutes from "./src/routes/CertificateRoutes.js";
 import errorHandler from "./src/middleware/errorHandler.js";
 // import paymentRoutes from "./src/routes/paymentRoutes.js";
 // import userRoutes from "./src/routes/userRoutes.js";
@@ -44,6 +46,9 @@ app.use("/api/courses", courseRoutes);  // Course-related routes
 app.use("/api/categories", categoryRoutes);
 app.use("/api/enrollment", enrollmentRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/Quiz", QuizRoutes);
+app.use("/api/certificate", CertificateRoutes);
+
 // app.use("/api/payment", paymentRoutes); //Payment-related routes
 // app.use("/api/users", userRoutes);      // User profile-related routes
 

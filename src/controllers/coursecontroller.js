@@ -13,62 +13,73 @@ const courseController = {
     const durationLimits = {
       Beginner: 20,
       Intermediate: 40,
-      Advanced: 60
+      Advanced: 60,
     };
 
     try {
-        if (!title || !description || !price || !language || !level || !category) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
+      if (
+        !title ||
+        !description ||
+        !price ||
+        !language ||
+        !level ||
+        !category
+      ) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
 
-        if (!req.file) {
-            return res.status(400).json({ message: "Thumbnail file is required" });
-        }
+      if (!req.file) {
+        return res.status(400).json({ message: "Thumbnail file is required" });
+      }
 
-        if (!durationLimits[level]) {
-            return res.status(400).json({ message: "Invalid course Level" });
-        }
+      if (!durationLimits[level]) {
+        return res.status(400).json({ message: "Invalid course Level" });
+      }
 
-        // Find category by name
-        const existingCategory = await Category.findOne({ name: category });
-        if (!existingCategory) {
-            return res.status(400).json({ message: "Invalid category name" });
-        }
+      // Find category by name
+      const existingCategory = await Category.findOne({ name: category });
+      if (!existingCategory) {
+        return res.status(400).json({ message: "Invalid category name" });
+      }
 
-        let thumbnailUrl;
-        try {
-            const resourceType = req.file.mimetype.startsWith("image/") ? "image" : "auto";
-            const uploadResult = await uploadToCloudinary(
-                req.file.buffer,
-                "thumbnails",
-                resourceType
-            );
-            thumbnailUrl = uploadResult.secure_url;
-        } catch (error) {
-            console.error("Thumbnail upload failed:", error.message);
-            return res.status(500).json({ message: "Failed to upload thumbnail" });
-        }
+      let thumbnailUrl;
+      try {
+        const resourceType = req.file.mimetype.startsWith("image/")
+          ? "image"
+          : "auto";
+        const uploadResult = await uploadToCloudinary(
+          req.file.buffer,
+          "thumbnails",
+          resourceType
+        );
+        thumbnailUrl = uploadResult.secure_url;
+      } catch (error) {
+        console.error("Thumbnail upload failed:", error.message);
+        return res.status(500).json({ message: "Failed to upload thumbnail" });
+      }
 
-        const course = new Course({
-            title,
-            description,
-            price,
-            language,
-            level,
-            thumbnail: thumbnailUrl,
-            instructor: instructorId,
-            category: existingCategory._id,
-            totalDuration: 0,
-            durationLimit: durationLimits[level],
-        });
+      const course = new Course({
+        title,
+        description,
+        price,
+        language,
+        level,
+        thumbnail: thumbnailUrl,
+        instructor: instructorId,
+        category: existingCategory._id,
+        totalDuration: 0,
+        durationLimit: durationLimits[level],
+      });
 
-        const savedCourse = await course.save();
-        return res.status(201).json({ message: "Course created successfully", course: savedCourse });
+      const savedCourse = await course.save();
+      return res
+        .status(201)
+        .json({ message: "Course created successfully", course: savedCourse });
     } catch (error) {
-        console.error("Error creating course:", error.message);
-        return res
-            .status(500)
-            .json({ message: "Failed to create course", error: error.message });
+      console.error("Error creating course:", error.message);
+      return res
+        .status(500)
+        .json({ message: "Failed to create course", error: error.message });
     }
   },
 
@@ -137,12 +148,10 @@ const courseController = {
         return res.status(404).json({ message: "Course not found" });
       }
 
-      res
-        .status(200)
-        .json({
-          message: "Course updated successfully",
-          course: updatedCourse,
-        });
+      res.status(200).json({
+        message: "Course updated successfully",
+        course: updatedCourse,
+      });
     } catch (error) {
       console.error("Error updating course:", error.message);
       res
@@ -171,79 +180,118 @@ const courseController = {
   // lesson related methods
   addLesson: async (req, res) => {
     try {
-        const { title, description, price, contentType, duration } = req.body;
-        const { courseId } = req.params;
+      const { title, description, price, contentType, duration, quiz } =
+        req.body;
+      const { courseId } = req.params;
 
-        if (!title || !description || !contentType || !duration) {
-            return res.status(400).json({ message: "Title, description, content type, and duration are required." });
+      if (!title || !description || !contentType || !duration) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Title, description, content type, and duration are required.",
+          });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "File is required." });
+      }
+
+      const { buffer, mimetype } = req.file;
+      const resourceType = mimetype.startsWith("video/")
+        ? "video"
+        : mimetype === "application/pdf" ||
+          mimetype === "application/vnd.ms-excel" ||
+          mimetype ===
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ? "raw"
+        : null;
+
+      console.log("Resource Type:", resourceType);
+      if (!resourceType) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Invalid file type. Only video, pdf, or excel files are supported.",
+          });
+      }
+
+      const uploadResult = await uploadToCloudinary(
+        buffer,
+        "lesson_files",
+        resourceType
+      );
+      console.log("Cloudinary Upload Result:", uploadResult);
+
+      const course = await Course.findById(courseId);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found." });
+      }
+
+      // Set time limits based on course level
+      let timeLimit;
+      if (course.level === "Beginner") {
+        timeLimit = 20;
+      } else if (course.level === "Intermediate") {
+        timeLimit = 40;
+      } else if (course.level === "Advanced") {
+        timeLimit = 60;
+      }
+
+      // Initialize the new lesson
+      const newLesson = {
+        title,
+        contentType,
+        fileUrl: uploadResult.secure_url,
+        description,
+        price: course.level === "Advanced" ? price : 0, // Only advanced courses can have paid lessons
+        isFree: false,
+        timeLimit,
+        duration,
+      };
+
+      // Save the lesson and get its ID
+      course.lessons.push(newLesson);
+      await course.save();
+
+      const addedLesson = course.lessons[course.lessons.length - 1]; // Retrieve the added lesson
+
+      // If a quiz is provided, validate and create it
+      if (quiz && quiz.questions && quiz.questions.length > 0) {
+        const { questions } = quiz;
+
+        if (questions.length > 10) {
+          return res
+            .status(400)
+            .json({ message: "A quiz can have a maximum of 10 questions." });
         }
 
-        if (!req.file) {
-            return res.status(400).json({ message: "File is required." });
-        }
+        const formattedQuestions = questions.map((q) => ({
+          questionText: q.questionText,
+          options: q.options,
+          correctOption: q.correctOption,
+        }));
 
-        const { buffer, mimetype } = req.file;
-        const resourceType = mimetype.startsWith("video/") ? "video" : 
-                             mimetype === "application/pdf" ? "pdf" : 
-                             mimetype.startsWith("application/vnd.ms-excel") ? "excel" : null;
+        const newQuiz = new Quiz({
+          lesson: addedLesson._id,
+          questions: formattedQuestions,
+        });
 
-        console.log("Resource Type:", resourceType);
-        if (!resourceType) {
-            return res.status(400).json({ message: "Invalid file type. Only video, pdf, or excel files are supported." });
-        }
+        await newQuiz.save();
+        addedLesson.quiz = newQuiz._id; // Associate the quiz with the lesson
+      }
 
-        const uploadResult = await uploadToCloudinary(buffer, "lesson_files", resourceType);
-        console.log("Cloudinary Upload Result:", uploadResult);
+      await course.save();
 
-        const course = await Course.findById(courseId);
-        if (!course) {
-            return res.status(404).json({ message: "Course not found." });
-        }
-
-        // Check total duration for beginner-level courses
-        // if (course.level === "Beginner") {
-        //     const totalDuration = course.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0);
-        //     if (totalDuration + duration > 360) {
-        //         return res.status(400).json({
-        //             message: `Total duration for beginner courses cannot exceed 6 hours (360 minutes). Current total: ${totalDuration} minutes.`,
-        //         });
-        //     }
-        // }
-
-        // Set time limits based on course level
-        let timeLimit;
-        if (course.level === "Beginner") {
-            timeLimit = 20;
-        } else if (course.level === "Intermediate") {
-            timeLimit = 40;
-        } else if (course.level === "Advanced") {
-            timeLimit = 60;
-        }
-
-        // Initialize the new lesson
-        const newLesson = {
-            title,
-            contentType,
-            fileUrl: uploadResult.secure_url,
-            description,
-            price: course.level === "Advanced" ? price : 0, // Only advanced courses can have paid lessons
-            isFree: false,
-            timeLimit,
-            duration,
-        };
-        course.lessons.push(newLesson);
-
-        // Update total duration in the course
-        // course.totalDuration = course.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0);
-
-        await course.save();
-
-        const addedLesson = course.lessons[course.lessons.length - 1]; // Retrieve the added lesson
-
-        res.status(201).json({ message: "Lesson added successfully.", lesson: addedLesson });
+      res
+        .status(201)
+        .json({ message: "Lesson added successfully.", lesson: addedLesson });
     } catch (error) {
-        console.error("Error adding lesson:", error.message);
-        res.status(500).json({ message: "Failed to add lesson.", error: error.message });
+      console.error("Error adding lesson:", error.message);
+      res
+        .status(500)
+        .json({ message: "Failed to add lesson.", error: error.message });
     }
   },
 
@@ -395,7 +443,6 @@ const courseController = {
         .json({ message: "Failed to fetch lesson.", error: error.message });
     }
   },
-
 };
 
 export default courseController;

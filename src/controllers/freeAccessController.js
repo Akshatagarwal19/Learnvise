@@ -2,7 +2,7 @@ import Course from "../models/Course.js";
 
 const toggleFreeStatus = async (req, res) => {
     try {
-        const { courseId, sectionId, lessonId } = req.params;
+        const { courseId, lessonId } = req.params;
         const { isFree } = req.body;
 
         if (typeof isFree !== "boolean") {
@@ -14,26 +14,16 @@ const toggleFreeStatus = async (req, res) => {
             return res.status(404).json({ message: "Course not found." });
         }
 
-        if (sectionId) {
-            const section = course.sections.id(sectionId);
-            if (!section) {
-                return res.status(404).json({ message: "Section not found." });
+        if (lessonId) {
+            const lesson = course.lessons.id(lessonId);
+            if (!lesson) {
+                return res.status(404).json({ message: "Lesson not found." });
             }
 
-            if (lessonId) {
-                const lesson = section.lessons.id(lessonId);
-                if (!lesson) {
-                    return res.status(404).json({ message: "Lesson not found." });
-                }
-                // Update free status for the specific lesson
-                lesson.isFree = isFree;
-            } else {
-                // Update free status for the section
-                section.isFree = isFree;
-            }
+            // Update free status for the specific lesson
+            lesson.isFree = isFree;
         } else {
-            // Optionally, handle free status for the entire course (if needed)
-            return res.status(400).json({ message: "Course-level free access is not supported." });
+            return res.status(400).json({ message: "Lesson ID is required to update free access." });
         }
 
         await course.save();
