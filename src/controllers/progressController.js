@@ -47,7 +47,9 @@ const progressController = {
 
         // Ensure the quiz is passed (at least 50%)
         if (percentage < 50) {
-            return res.status(400).json({ message: "Quiz not passed. You must score at least 50% to complete the lesson." });
+            return res.status(400).json({ message: "Quiz not passed. You must score at least 50% to complete the lesson.", quizResult: {
+                score, percentage, passed: false,
+            } });
         }
 
         // Update progress
@@ -77,7 +79,15 @@ const progressController = {
         await progress.save();
 
         // Return success response with progress data
-        return res.status(200).json({ message: "Lesson completed successfully.", progress });
+        return res.status(200).json({
+            message: "Lesson and quiz completed successfully.",
+            quizResult: {
+                score,
+                percentage,
+                passed: true,
+            },
+            progress,
+        });
     } catch (error) {
         console.error("Error in attemptAndCompleteLesson:", error);
         res.status(500).json({ message: "Failed to complete lesson and quiz.", error: error.message });

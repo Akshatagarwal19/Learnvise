@@ -48,6 +48,9 @@ app.use("/api/enrollment", enrollmentRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/Quiz", QuizRoutes);
 app.use("/api/certificate", CertificateRoutes);
+// Static Route to expose certificate folder to browser for download
+app.use("/certificates", express.static("certificates"));
+
 
 // app.use("/api/payment", paymentRoutes); //Payment-related routes
 // app.use("/api/users", userRoutes);      // User profile-related routes
