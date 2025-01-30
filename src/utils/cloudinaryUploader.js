@@ -23,6 +23,7 @@ const uploadToCloudinary = (fileBuffer, folder, resourceType = "auto", originalN
                 public_id: safeName,
                 use_filename: true,
                 unique_filename: false,
+                content_type: resourceType === "raw" ? "application/octet-stream" : undefined,
             },
             (error, result) => {
                 if (error) {

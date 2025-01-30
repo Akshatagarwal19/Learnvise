@@ -13,14 +13,20 @@ import categoryRoutes from "./src/routes/categoryRoutes.js";
 import QuizRoutes from "./src/routes/QuizRoutes.js";
 import CertificateRoutes from "./src/routes/CertificateRoutes.js";
 import errorHandler from "./src/middleware/errorHandler.js";
+import path from "path";
 // import paymentRoutes from "./src/routes/paymentRoutes.js";
 // import userRoutes from "./src/routes/userRoutes.js";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { storage } from './src/config/multer.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
 const app = express();
 
-const storage = multer.memoryStorage(); // Store file in memory
 const upload = multer({ storage: storage });
 
 app.use(cookieParser());
@@ -50,10 +56,7 @@ app.use("/api/Quiz", QuizRoutes);
 app.use("/api/certificate", CertificateRoutes);
 // Static Route to expose certificate folder to browser for download
 app.use("/certificates", express.static("certificates"));
-
-
-// app.use("/api/payment", paymentRoutes); //Payment-related routes
-// app.use("/api/users", userRoutes);      // User profile-related routes
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Error Handler Middleware
 app.use(errorHandler);

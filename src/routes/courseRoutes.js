@@ -4,9 +4,9 @@ import courseController from '../controllers/coursecontroller.js';
 import enrollmentController from '../controllers/enrollmentcontroller.js';
 import toggleFreeStatus from '../controllers/freeAccessController.js';
 import multer from 'multer';
-
+import { storage } from '../config/multer.js';
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage });
 
 router.post("/", auth.authenticate, auth.authorize(["Instructor", "Manager", "Owner"]),upload.single("thumbnail"), courseController.createCourse);
 router.get("/", courseController.getAllCourses);

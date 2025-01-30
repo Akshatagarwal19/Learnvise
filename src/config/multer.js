@@ -1,20 +1,50 @@
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 
+// Ensure upload directories exist
+const ensureUploadPath = (uploadDir) => {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+};
 
-// Multer upload configuration
-const upload = multer({
-    storage: multer.memoryStorage(),
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = /video\/(mp4|avi|mkv)|application\/(pdf|vnd.ms-excel|vnd.openxmlformats-officedocument.spreadsheetml.sheet)/; // Allowed file types
-        const isValidType = allowedTypes.test(file.mimetype);
+// Define storage based on file type
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        let uploadDir;
 
-        if (!isValidType) {
-            console.error(`Rejected file type: ${file.mimetype}`);
+        if (file.mimetype.startsWith("image/")) {
+            uploadDir = path.join("uploads", "thumbnails"); // Store thumbnails
+        } else {
+            uploadDir = path.join("uploads", "lessons"); // Store lesson files
         }
-    
-        cb(isValidType ? null : new Error("Invalid file type. Allowed types: video (mp4, avi, mkv), pdf, excel"), isValidType);
+
+        ensureUploadPath(uploadDir);
+        cb(null, uploadDir);
     },
-    limits: { fileSize: 100 * 1024 * 1024 }, // 10 MB file size limit
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    },
 });
 
+// File type validation
+const fileFilter = (req, file, cb) => {
+    const allowedMimeTypes = [
+        "image/png", "image/jpeg", "image/jpg", // Thumbnails
+        "video/mp4", "video/webm", "video/ogg", // Videos
+        "application/pdf", // PDFs
+        "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" // Excel files
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error("Invalid file type"), false);
+    }
+};
+
+const upload = multer({ storage, fileFilter });
+
+export { storage }; 
 export default upload;

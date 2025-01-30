@@ -1,6 +1,8 @@
 import Course from "../models/Course.js";
 import Category from "../models/Category.js";
 import uploadToCloudinary from "../utils/cloudinaryUploader.js";
+import path from "path";
+import fs from "fs";
 
 const courseController = {
   createCourse: async (req, res) => {
@@ -11,77 +13,59 @@ const courseController = {
     console.log("Multer File Object:", req.file);
 
     const durationLimits = {
-      Beginner: 20,
-      Intermediate: 40,
-      Advanced: 60,
+        Beginner: 20,
+        Intermediate: 40,
+        Advanced: 60,
     };
 
     try {
-      if (
-        !title ||
-        !description ||
-        !price ||
-        !language ||
-        !level ||
-        !category
-      ) {
-        return res.status(400).json({ message: "All fields are required" });
-      }
+        if (!title || !description || !price || !language || !level || !category) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
 
-      if (!req.file) {
-        return res.status(400).json({ message: "Thumbnail file is required" });
-      }
+        if (!req.file) {
+            return res.status(400).json({ message: "Thumbnail file is required" });
+        }
 
-      if (!durationLimits[level]) {
-        return res.status(400).json({ message: "Invalid course Level" });
-      }
+        if (!durationLimits[level]) {
+            return res.status(400).json({ message: "Invalid course Level" });
+        }
 
-      // Find category by name
-      const existingCategory = await Category.findOne({ name: category });
-      if (!existingCategory) {
-        return res.status(400).json({ message: "Invalid category name" });
-      }
+        // Find category by name
+        const existingCategory = await Category.findOne({ name: category });
+        if (!existingCategory) {
+            return res.status(400).json({ message: "Invalid category name" });
+        }
 
-      let thumbnailUrl;
-      try {
-        const resourceType = req.file.mimetype.startsWith("image/")
-          ? "image"
-          : "auto";
-        const uploadResult = await uploadToCloudinary(
-          req.file.buffer,
-          "thumbnails",
-          resourceType
-        );
-        thumbnailUrl = uploadResult.secure_url;
-      } catch (error) {
-        console.error("Thumbnail upload failed:", error.message);
-        return res.status(500).json({ message: "Failed to upload thumbnail" });
-      }
+        // Define local storage path for thumbnails
+        const uploadDir = path.join("uploads", "thumbnails");
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
 
-      const course = new Course({
-        title,
-        description,
-        price,
-        language,
-        level,
-        thumbnail: thumbnailUrl,
-        instructor: instructorId,
-        category: existingCategory._id,
-        totalDuration: 0,
-        durationLimit: durationLimits[level],
-      });
+        // Save file locally
+        const thumbnailPath = path.join("uploads", "thumbnails", req.file.filename); 
+        const normalizedPath = path.normalize(thumbnailPath).replace(/\\/g, '/');
+        const course = new Course({
+            title,
+            description,
+            price,
+            language,
+            level,
+            thumbnail: `/${normalizedPath}`, // Store relative path
+            instructor: instructorId,
+            category: existingCategory._id,
+            totalDuration: 0,
+            durationLimit: durationLimits[level],
+        });
 
-      const savedCourse = await course.save();
-      return res
-        .status(201)
-        .json({ message: "Course created successfully", course: savedCourse });
+        const savedCourse = await course.save();
+        return res.status(201).json({ message: "Course created successfully", course: savedCourse });
     } catch (error) {
-      console.error("Error creating course:", error.message);
-      return res
-        .status(500)
-        .json({ message: "Failed to create course", error: error.message });
+        console.error("Error creating course:", error.message);
+        return res.status(500).json({ message: "Failed to create course", error: error.message });
     }
-  },
+},
 
   getAllCourses: async (req, res) => {
     try {
@@ -180,120 +164,88 @@ const courseController = {
   // lesson related methods
   addLesson: async (req, res) => {
     try {
-      const { title, description, price, contentType, duration, quiz } =
-        req.body;
-      const { courseId } = req.params;
+        const { title, description, price, contentType, duration, quiz } = req.body;
+        const { courseId } = req.params;
 
-      if (!title || !description || !contentType || !duration) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Title, description, content type, and duration are required.",
-          });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ message: "File is required." });
-      }
-
-      const { buffer, mimetype } = req.file;
-      const resourceType = mimetype.startsWith("video/")
-        ? "video"
-        : mimetype === "application/pdf" ||
-          mimetype === "application/vnd.ms-excel" ||
-          mimetype ===
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ? "raw"
-        : null;
-
-      console.log("Resource Type:", resourceType);
-      if (!resourceType) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Invalid file type. Only video, pdf, or excel files are supported.",
-          });
-      }
-
-      const uploadResult = await uploadToCloudinary(
-        buffer,
-        "lesson_files",
-        resourceType
-      );
-      console.log("Cloudinary Upload Result:", uploadResult);
-
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: "Course not found." });
-      }
-
-      // Set time limits based on course level
-      let timeLimit;
-      if (course.level === "Beginner") {
-        timeLimit = 20;
-      } else if (course.level === "Intermediate") {
-        timeLimit = 40;
-      } else if (course.level === "Advanced") {
-        timeLimit = 60;
-      }
-
-      // Initialize the new lesson
-      const newLesson = {
-        title,
-        contentType,
-        fileUrl: uploadResult.secure_url,
-        description,
-        price: course.level === "Advanced" ? price : 0, // Only advanced courses can have paid lessons
-        isFree: false,
-        timeLimit,
-        duration,
-      };
-
-      // Save the lesson and get its ID
-      course.lessons.push(newLesson);
-      await course.save();
-
-      const addedLesson = course.lessons[course.lessons.length - 1]; // Retrieve the added lesson
-
-      // If a quiz is provided, validate and create it
-      if (quiz && quiz.questions && quiz.questions.length > 0) {
-        const { questions } = quiz;
-
-        if (questions.length > 10) {
-          return res
-            .status(400)
-            .json({ message: "A quiz can have a maximum of 10 questions." });
+        if (!title || !description || !contentType || !duration) {
+            return res.status(400).json({ message: "Title, description, content type, and duration are required." });
         }
 
-        const formattedQuestions = questions.map((q) => ({
-          questionText: q.questionText,
-          options: q.options,
-          correctOption: q.correctOption,
-        }));
+        if (!req.file) {
+            return res.status(400).json({ message: "File is required." });
+        }
 
-        const newQuiz = new Quiz({
-          lesson: addedLesson._id,
-          questions: formattedQuestions,
-        });
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ message: "Course not found." });
+        }
 
-        await newQuiz.save();
-        addedLesson.quiz = newQuiz._id; // Associate the quiz with the lesson
-      }
+        // Set time limits based on course level
+        let timeLimit;
+        if (course.level === "Beginner") timeLimit = 20;
+        else if (course.level === "Intermediate") timeLimit = 40;
+        else if (course.level === "Advanced") timeLimit = 60;
 
-      await course.save();
+        // Define local storage path
+        const uploadDir = path.join("uploads", "lessons");
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
 
-      res
-        .status(201)
-        .json({ message: "Lesson added successfully.", lesson: addedLesson });
+        // Save file to local storage
+        const filePath = path.join(uploadDir, req.file.filename);
+
+        // Initialize the new lesson
+        const normalizedPath = path.normalize(filePath).replace(/\\/g, '/');
+
+// Initialize the new lesson object
+const newLesson = {
+    title,
+    contentType,
+    fileUrl: `/${normalizedPath}`, // Save the relative URL for serving
+    description,
+    price: course.level === "Advanced" ? price : 0, // Only advanced courses can have paid lessons
+    isFree: false,
+    timeLimit,
+    duration,
+};
+
+        // Save the lesson
+        course.lessons.push(newLesson);
+        await course.save();
+
+        const addedLesson = course.lessons[course.lessons.length - 1];
+
+        // If a quiz is provided, validate and create it
+        if (quiz && quiz.questions && quiz.questions.length > 0) {
+            const { questions } = quiz;
+            if (questions.length > 10) {
+                return res.status(400).json({ message: "A quiz can have a maximum of 10 questions." });
+            }
+
+            const formattedQuestions = questions.map((q) => ({
+                questionText: q.questionText,
+                options: q.options,
+                correctOption: q.correctOption,
+            }));
+
+            const newQuiz = new Quiz({
+                lesson: addedLesson._id,
+                questions: formattedQuestions,
+            });
+
+            await newQuiz.save();
+            addedLesson.quiz = newQuiz._id;
+        }
+
+        await course.save();
+
+        res.status(201).json({ message: "Lesson added successfully.", lesson: addedLesson });
     } catch (error) {
-      console.error("Error adding lesson:", error.message);
-      res
-        .status(500)
-        .json({ message: "Failed to add lesson.", error: error.message });
+        console.error("Error adding lesson:", error.message);
+        res.status(500).json({ message: "Failed to add lesson.", error: error.message });
     }
-  },
+},
 
   updateLesson: async (req, res) => {
     try {
