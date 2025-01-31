@@ -6,6 +6,7 @@ import multer from "multer";
 import connectDB from "./src/config/db.js";
 import cookieParser from "cookie-parser";
 import authRoutes from "./src/routes/authRoutes.js";
+import userRoutes from "./src/routes/userRoutes.js";
 import courseRoutes from "./src/routes/courseRoutes.js";
 import enrollmentRoutes from "./src/routes/enrollmentRoutes.js"
 import progressRoutes from "./src/routes/progressRoutes.js";
@@ -14,8 +15,6 @@ import QuizRoutes from "./src/routes/QuizRoutes.js";
 import CertificateRoutes from "./src/routes/CertificateRoutes.js";
 import errorHandler from "./src/middleware/errorHandler.js";
 import path from "path";
-// import paymentRoutes from "./src/routes/paymentRoutes.js";
-// import userRoutes from "./src/routes/userRoutes.js";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { storage } from './src/config/multer.js';
@@ -48,6 +47,7 @@ app.get('/', (req, res) => {
 });
 // Routes
 app.use("/api/auth", authRoutes);        // Authentication-related routes
+app.use("/api/users", userRoutes);
 app.use("/api/courses", courseRoutes);  // Course-related routes
 app.use("/api/categories", categoryRoutes);
 app.use("/api/enrollment", enrollmentRoutes);

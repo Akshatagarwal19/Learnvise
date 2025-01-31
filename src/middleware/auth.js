@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 
 const ROLE_HIERARCHY = {
-    Owner: 3,
+    Admin: 3,
     Manager: 2,
     Instructor: 1,
     Student: 0,

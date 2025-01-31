@@ -8,16 +8,16 @@ import { storage } from '../config/multer.js';
 const router = express.Router();
 const upload = multer({ storage });
 
-router.post("/", auth.authenticate, auth.authorize(["Instructor", "Manager", "Owner"]),upload.single("thumbnail"), courseController.createCourse);
+router.post("/", auth.authenticate, auth.authorize(["Instructor", "Manager", "Admin"]),upload.single("thumbnail"), courseController.createCourse);
 router.get("/", courseController.getAllCourses);
 router.get("/:id", courseController.getCourseById);
-router.put("/:id", auth.authenticate, auth.authorize(["Instructor", "Manager", "Owner"]), courseController.updateCourse);
-router.delete("/:id", auth.authenticate, auth.authorize(["Manager", "Owner"]), courseController.deleteCourse);
+router.put("/:id", auth.authenticate, auth.authorize(["Instructor", "Manager", "Admin"]), courseController.updateCourse);
+router.delete("/:id", auth.authenticate, auth.authorize(["Manager", "Admin"]), courseController.deleteCourse);
 
 // ---------- Lesson Routes ----------
-router.post('/:courseId/lessons',auth.authenticate,auth.authorize(['Instructor', 'Manager', 'Owner']),upload.single('file'),courseController.addLesson);
-router.put("/:courseId/lessons/:lessonId",auth.authenticate,auth.authorize(["Instructor", "Manager", "Owner"]),courseController.updateLesson);
-router.delete("/:courseId/lessons/:lessonId",auth.authenticate,auth.authorize(["Instructor", "Manager", "Owner"]),courseController.deleteLesson);
+router.post('/:courseId/lessons',auth.authenticate,auth.authorize(['Instructor', 'Manager', 'Admin']),upload.single('file'),courseController.addLesson);
+router.put("/:courseId/lessons/:lessonId",auth.authenticate,auth.authorize(["Instructor", "Manager", "Admin"]),courseController.updateLesson);
+router.delete("/:courseId/lessons/:lessonId",auth.authenticate,auth.authorize(["Instructor", "Manager", "Admin"]),courseController.deleteLesson);
 router.get("/:courseId/lessons",auth.authenticate,auth.authorize(["Instructor", "Student"]),courseController.getLessons);
 router.get("/:courseId/lessons/:lessonId", auth.authenticate, courseController.getLesson);
 // router.get("/:courseId/lessons/:lessonId/stream",auth.authenticate,auth.authorize(["Instructor", "Student"]),courseController.getLessonVideo);
