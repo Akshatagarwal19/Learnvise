@@ -10,7 +10,7 @@ const upload = multer({ storage });
 
 router.post("/", auth.authenticate, auth.authorize(["Instructor", "Manager", "Owner"]),upload.single("thumbnail"), courseController.createCourse);
 router.get("/", courseController.getAllCourses);
-router.get("/:id", auth.authenticate, courseController.getCourseById);
+router.get("/:id", courseController.getCourseById);
 router.put("/:id", auth.authenticate, auth.authorize(["Instructor", "Manager", "Owner"]), courseController.updateCourse);
 router.delete("/:id", auth.authenticate, auth.authorize(["Manager", "Owner"]), courseController.deleteCourse);
 
